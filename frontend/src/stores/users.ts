@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+// import axios from 'axios';
+import apiService from '../services/api/apiService';
 
 interface User {
   id: number;
@@ -23,7 +24,7 @@ export const useUserStore = defineStore('user', {
       console.log(email,password,username);
       
       try {
-        await axios.post('http://localhost:3000/auth/signup', {
+        await apiService.post('/auth/signup', {
           email,
           password,
           name:username
@@ -38,12 +39,15 @@ export const useUserStore = defineStore('user', {
 
     async login(email: string, password: string): Promise<boolean> {
       try {
-        const response = await axios.post('http://localhost:3000/auth/login', {
+        const response = await apiService.post('/auth/login', {
           email,
           password,
         });
+        console.log(response,'response');
         this.currentUser = response.data;
-        axios.defaults.headers.common['Authorization'] = `Bearer ${this.currentUser?.token}`;
+        apiService.defaults.headers.common['Authorization'] = `Bearer ${this.currentUser?.token}`;
+  
+       
         return true;
       } catch (error) {
         console.error('Login failed', error);
@@ -52,7 +56,7 @@ export const useUserStore = defineStore('user', {
     },
     clearUser() {
       this.currentUser = null;
-      delete axios.defaults.headers.common['Authorization'];
+      delete apiService.defaults.headers.common['Authorization'];
     },
   },
   

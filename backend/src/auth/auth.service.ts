@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service'; // assuming you have a UsersService to manage users
 
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -15,7 +16,7 @@ export class AuthService {
   ) {}
 
   // Sign in functionality
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto,req,res) {
     const { email, password } = loginDto;
 
     // Find the user by email
@@ -31,10 +32,13 @@ export class AuthService {
     }
 
     // Generate and return the JWT token
-    const payload = {name:user.name, email: user.email, sub: user.id };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.generateAccessToken({userId:user.id.toString()});;
+    const newRefreshToken = this.generateRefreshToken({userId:user.id.toString()});
+    
+    res.cookie('refreshToken', newRefreshToken, { httpOnly: true });
 
-    return { token:accessToken,name:user.name, email: user.email, id: user.id };
+
+    return res.json({ token:accessToken,name:user.name, email: user.email, id: user.id });
   }
 
   // Sign up functionality
@@ -59,4 +63,48 @@ export class AuthService {
 
     return { accessToken };
   }
+
+  async refresh(req,  res){
+    // console.log(cookie);
+    const refreshToken =  req.cookies.refreshToken;  //cookie.parse(req.headers().cookies)['refreshToken'];
+    if (!refreshToken) {
+      return res.status(401).send('No refresh token provided');
+    }
+
+    try {
+      // Verify the refresh token
+      const newAccessToken = this.generateAccessToken({userId:req.user.userId});
+      const newRefreshToken = this.generateRefreshToken({userId:req.user.userId});
+
+      // Update the refresh token cookie
+      res.cookie('refreshToken', newRefreshToken, { httpOnly: true, secure: true });
+
+      return res.json({ accessToken: newAccessToken });
+    } catch (error) {
+      return res.status(401).send('Invalid refresh token');
+    }
+
+  }
+
+
+  // Generate Access Token
+  generateAccessToken(payload: { userId: string }) {
+    return this.jwtService.sign(payload, { expiresIn: '1m' }); // Short-lived token
+  }
+
+  // Generate Refresh Token
+  generateRefreshToken(payload: { userId: string }) {
+    return this.jwtService.sign(payload, { expiresIn: '7d',secret:'11112112423' }); // Long-lived token
+  }
+
+  // Verify Token
+  verifyToken(token: string) {
+    return this.jwtService.verify(token);
+  }
+
+  // Decode Token without verification
+  decodeToken(token: string) {
+    return this.jwtService.decode(token);
+  }
+
 }
